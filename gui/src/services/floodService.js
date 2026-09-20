@@ -1,3 +1,6 @@
+// Example API base configuration
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+
 export async function loadEventStats() {
     const response = await fetch(
         "/data/flood/flood_statistics_event_extent.json"

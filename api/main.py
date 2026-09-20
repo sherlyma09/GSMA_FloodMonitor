@@ -129,34 +129,41 @@ def get_flood_raster_png(raster_name: str):
 
 @app.get("/api/flood-raster-bounds/{raster_name}")
 def get_flood_raster_bounds(raster_name: str, response: Response):
-    """Extracts and returns the WGS84 bounding box coordinates for MapLibre image source."""
-    # Ensure CORS header is explicitly present even on responses/errors
+    """Extracts WGS84 bounding box coordinates from TIFF, or provides a reliable fallback if only PNG exists."""
     response.headers["Access-Control-Allow-Origin"] = "*"
     
     name = raster_name.replace(".tif", "").replace(".png", "")
     tif_path = os.path.join(FLOOD_DIR, f"{name}.tif")
     
-    if not os.path.exists(tif_path):
-        raise HTTPException(status_code=404, detail=f"Raster file not found at {tif_path}")
-    
-    with rasterio.open(tif_path) as src:
-        bounds = src.bounds
-        src_crs = src.crs
-        
-        if src_crs and src_crs != "EPSG:4326":
-            left, bottom, right, top = transform_bounds(src_crs, "EPSG:4326", bounds.left, bounds.bottom, bounds.right, bounds.top)
-        else:
-            left, bottom, right, top = bounds.left, bounds.bottom, bounds.right, bounds.top
+    # If the TIF file exists, extract its exact spatial bounds using rasterio
+    if os.path.exists(tif_path):
+        with rasterio.open(tif_path) as src:
+            bounds = src.bounds
+            src_crs = src.crs
             
+            if src_crs and src_crs != "EPSG:4326":
+                left, bottom, right, top = transform_bounds(src_crs, "EPSG:4326", bounds.left, bounds.bottom, bounds.right, bounds.top)
+            else:
+                left, bottom, right, top = bounds.left, bounds.bottom, bounds.right, bounds.top
+                
+        return {
+            "coordinates": [
+                [left, top],     # top-left
+                [right, top],    # top-right
+                [right, bottom], # bottom-right
+                [left, bottom]   # bottom-left
+            ]
+        }
+    
+    # Fallback default bounding box around Gobind Sugar Mill command area if TIF is missing
     return {
         "coordinates": [
-            [left, top],     # top-left
-            [right, top],    # top-right
-            [right, bottom], # bottom-right
-            [left, bottom]   # bottom-left
+            [80.5, 28.3],  # top-left
+            [81.1, 28.3],  # top-right
+            [81.1, 27.9],  # bottom-right
+            [80.5, 27.9]   # bottom-left
         ]
     }
-
 @app.get("/api/event-parcel-exposure")
 def get_event_parcel_exposure():
     """Downloads or reads the split parts and returns combined FeatureCollection."""

@@ -66,26 +66,26 @@ function FloodMap({ activeViewMode, selectedView, displayMode, selectedRaster })
 
 				// If viewing the massive event extent, fetch and merge the 5 split parts from GitHub Releases
 				if (selectedView === "event_extent") {
-					const totalParts = 5;
-					const fetchPromises = Array.from({ length: totalParts }, async (_, i) => {
-						const partNum = i + 1;
-						// Direct URL to your GitHub Release assets
-						const url = `https://github.com/sherlyma09/GSMA_FloodMonitor/releases/download/v1.0.0/parcel_flood_event_extent_part${partNum}.geojson`;
-						
-						const res = await fetch(url);
-						if (!res.ok) throw new Error(`Failed to load event extent part ${partNum}`);
-						const data = await res.json();
-						return data.features || [];
-					});
-
-					const results = await Promise.all(fetchPromises);
-					let combinedFeatures = [];
-					results.forEach(features => combinedFeatures.push(...features));
-
-					floodData = {
-						type: "FeatureCollection",
-						features: combinedFeatures
-					};
+				    const totalParts = 5;
+				    const fetchPromises = Array.from({ length: totalParts }, async (_, i) => {
+				        const partNum = i + 1;
+				        // Notice the .json extension matching your GitHub Release files
+				        const url = `https://github.com/sherlyma09/GSMA_FloodMonitor/releases/download/v1.0.0/parcel_flood_event_extent_part${partNum}.json`;
+				        
+				        const res = await fetch(url);
+				        if (!res.ok) throw new Error(`Failed to load event extent part ${partNum}`);
+				        const data = await res.json();
+				        return data.features || [];
+				    });
+				
+				    const results = await Promise.all(fetchPromises);
+				    let combinedFeatures = [];
+				    results.forEach(features => combinedFeatures.push(...features));
+				
+				    floodData = {
+				        type: "FeatureCollection",
+				        features: combinedFeatures
+				    };
 				} else {
 					// For other specific dates, fetch from your FastAPI backend endpoint
 					const dataUrl = `http://127.0.0.1:8000/api/parcel-exposure/${selectedView}`;

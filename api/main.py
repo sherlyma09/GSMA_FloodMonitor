@@ -159,7 +159,7 @@ def get_flood_raster_bounds(raster_name: str, response: Response):
 
 @app.get("/api/event-parcel-exposure")
 def get_event_parcel_exposure():
-    """Downloads the 5 split parts from GitHub releases server-side, merges them, and returns a single FeatureCollection."""
+    """Downloads or reads the split parts and returns combined FeatureCollection."""
     combined_features = []
     base_url = "https://github.com/sherlyma09/GSMA_FloodMonitor/releases/download/v1.0.0"
     
@@ -172,10 +172,10 @@ def get_event_parcel_exposure():
                     data = json.loads(response.read().decode('utf-8'))
                     combined_features.extend(data.get("features", []))
         except Exception as e:
-            print(f"Warning: Could not fetch part {i} from GitHub releases: {e}")
+            print(f"Warning: Could not fetch part {i}: {e}")
             
     if not combined_features:
-        raise HTTPException(status_code=404, detail="Failed to fetch event extent parts from GitHub releases.")
+        raise HTTPException(status_code=404, detail="Event extent parts not found.")
         
     return {
         "type": "FeatureCollection",

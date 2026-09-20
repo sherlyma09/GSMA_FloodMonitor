@@ -1,0 +1,12 @@
+study_area: config/command_area.geojson
+
+start_date: "2026-09-01"
+end_date: "2026-09-19"
+
+output_dir: data
+
+resolution: 10
+
+polarizations:
+  - vv
+  - vh

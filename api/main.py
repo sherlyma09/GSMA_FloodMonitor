@@ -10,7 +10,7 @@ app = FastAPI(title="Gobind Sugar Mill Flood Monitor API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["https://gsmafloodmonitor.netlify.app/"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

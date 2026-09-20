@@ -20,8 +20,3 @@ ENV/
 .vscode/
 .idea/
 *.log
-
-# Large Geospatial Data & Archives
-data/
-*.geojson
-*.tif

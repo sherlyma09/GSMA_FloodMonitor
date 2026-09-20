@@ -23,6 +23,5 @@ ENV/
 
 # Large Geospatial Data & Archives
 data/
-gui/public/data/
 *.geojson
 *.tif

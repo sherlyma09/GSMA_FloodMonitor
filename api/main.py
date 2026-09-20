@@ -5,6 +5,7 @@ from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from rasterio.warp import transform_bounds
+import urllib.request
 
 app = FastAPI(title="Gobind Sugar Mill Flood Monitor API", version="1.0.0")
 
@@ -154,4 +155,29 @@ def get_flood_raster_bounds(raster_name: str, response: Response):
             [right, bottom], # bottom-right
             [left, bottom]   # bottom-left
         ]
+    }
+
+@app.get("/api/event-parcel-exposure")
+def get_event_parcel_exposure():
+    """Downloads the 5 split parts from GitHub releases server-side, merges them, and returns a single FeatureCollection."""
+    combined_features = []
+    base_url = "https://github.com/sherlyma09/GSMA_FloodMonitor/releases/download/v1.0.0"
+    
+    for i in range(1, 6):
+        url = f"{base_url}/parcel_flood_event_extent_part{i}.json"
+        try:
+            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req) as response:
+                if response.status == 200:
+                    data = json.loads(response.read().decode('utf-8'))
+                    combined_features.extend(data.get("features", []))
+        except Exception as e:
+            print(f"Warning: Could not fetch part {i} from GitHub releases: {e}")
+            
+    if not combined_features:
+        raise HTTPException(status_code=404, detail="Failed to fetch event extent parts from GitHub releases.")
+        
+    return {
+        "type": "FeatureCollection",
+        "features": combined_features
     }

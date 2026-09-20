@@ -47,6 +47,9 @@ function FloodMap({ activeViewMode, selectedView, displayMode, selectedRaster })
         const map = mapRef.current;
         if (!map || !map.isStyleLoaded()) return;
 
+        // Use Netlify environment variable with fallback to live Render backend
+        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://gsma-floodmonitor.onrender.com";
+
         const removeLayerIfExists = (id) => { if (map.getLayer(id)) map.removeLayer(id); };
         const removeSourceIfExists = (id) => { if (map.getSource(id)) map.removeSource(id); };
 
@@ -55,108 +58,107 @@ function FloodMap({ activeViewMode, selectedView, displayMode, selectedRaster })
             removeLayerIfExists("raster-flood-layer");
             removeSourceIfExists("raster-flood-source");
 
-            const dataUrl = `http://127.0.0.1:8000/api/parcel-exposure/${selectedView}`;
+            const updateVectorLayer = async () => {
+                const map = mapRef.current;
+                if (!map || !map.isStyleLoaded()) return;
 
-		const updateVectorLayer = async () => {
-			const map = mapRef.current;
-			if (!map || !map.isStyleLoaded()) return;
+                try {
+                    let floodData;
 
-			try {
-				let floodData;
+                    // If viewing the massive event extent, fetch and merge the 5 split parts from GitHub Releases
+                    if (selectedView === "event_extent") {
+                        const totalParts = 5;
+                        const fetchPromises = Array.from({ length: totalParts }, async (_, i) => {
+                            const partNum = i + 1;
+                            const url = `https://github.com/sherlyma09/GSMA_FloodMonitor/releases/download/v1.0.0/parcel_flood_event_extent_part${partNum}.json`;
+                            
+                            const res = await fetch(url);
+                            if (!res.ok) throw new Error(`Failed to load event extent part ${partNum}`);
+                            const data = await res.json();
+                            return data.features || [];
+                        });
+                    
+                        const results = await Promise.all(fetchPromises);
+                        let combinedFeatures = [];
+                        results.forEach(features => combinedFeatures.push(...features));
+                    
+                        floodData = {
+                            type: "FeatureCollection",
+                            features: combinedFeatures
+                        };
+                    } else {
+                        // For other specific dates, fetch from your live backend endpoint
+                        const dataUrl = `${API_BASE_URL}/api/parcel-exposure/${selectedView}`;
+                        const res = await fetch(dataUrl);
+                        if (!res.ok) throw new Error("Failed to fetch vector data");
+                        floodData = await res.json();
+                    }
 
-				// If viewing the massive event extent, fetch and merge the 5 split parts from GitHub Releases
-				if (selectedView === "event_extent") {
-				    const totalParts = 5;
-				    const fetchPromises = Array.from({ length: totalParts }, async (_, i) => {
-				        const partNum = i + 1;
-				        // Notice the .json extension matching your GitHub Release files
-				        const url = `https://github.com/sherlyma09/GSMA_FloodMonitor/releases/download/v1.0.0/parcel_flood_event_extent_part${partNum}.json`;
-				        
-				        const res = await fetch(url);
-				        if (!res.ok) throw new Error(`Failed to load event extent part ${partNum}`);
-				        const data = await res.json();
-				        return data.features || [];
-				    });
-				
-				    const results = await Promise.all(fetchPromises);
-				    let combinedFeatures = [];
-				    results.forEach(features => combinedFeatures.push(...features));
-				
-				    floodData = {
-				        type: "FeatureCollection",
-				        features: combinedFeatures
-				    };
-				} else {
-					// For other specific dates, fetch from your FastAPI backend endpoint
-					const dataUrl = `http://127.0.0.1:8000/api/parcel-exposure/${selectedView}`;
-					const res = await fetch(dataUrl);
-					if (!res.ok) throw new Error("Failed to fetch vector data");
-					floodData = await res.json();
-				}
+                    // Feed the unified data into the MapLibre source
+                    if (map.getSource("flood")) {
+                        map.getSource("flood").setData(floodData);
+                    } else {
+                        map.addSource("flood", {
+                            type: "geojson",
+                            data: floodData
+                        });
+                    }
 
-				// Feed the unified data into the MapLibre source
-				if (map.getSource("flood")) {
-					map.getSource("flood").setData(floodData);
-				} else {
-					map.addSource("flood", {
-						type: "geojson",
-						data: floodData
-					});
-				}
+                    const fillColor = displayMode === "binary" 
+                        ? [
+                            "match",
+                            ["get", "flood_class"],
+                            "Not Flooded", "transparent",
+                            "#dc2626"
+                          ]
+                        : [
+                            "match",
+                            ["get", "flood_class"],
+                            "Extreme", "#8b0000",
+                            "Severe", "#ff0000",
+                            "Moderate", "#ff8c00",
+                            "Minor", "#ffd700",
+                            "transparent"
+                          ];
 
-				const fillColor = displayMode === "binary" 
-					? [
-						"match",
-						["get", "flood_class"],
-						"Not Flooded", "transparent",
-						"#dc2626"
-					  ]
-					: [
-						"match",
-						["get", "flood_class"],
-						"Extreme", "#8b0000",
-						"Severe", "#ff0000",
-						"Moderate", "#ff8c00",
-						"Minor", "#ffd700",
-						"transparent"
-					  ];
+                    const outlineOpacity = displayMode === "binary" ? 0 : [
+                        "match",
+                        ["get", "flood_class"],
+                        "Not Flooded", 0,
+                        1.0
+                    ];
 
-				const outlineOpacity = displayMode === "binary" ? 0 : [
-					"match",
-					["get", "flood_class"],
-					"Not Flooded", 0,
-					1.0
-				];
+                    if (map.getLayer("flood-fill")) {
+                        map.setPaintProperty("flood-fill", "fill-color", fillColor);
+                        map.setPaintProperty("flood-outline", "line-opacity", outlineOpacity);
+                    } else {
+                        map.addLayer({
+                            id: "flood-fill",
+                            type: "fill",
+                            source: "flood",
+                            paint: {
+                                "fill-color": fillColor,
+                                "fill-opacity": 0.85
+                            }
+                        });
 
-				if (map.getLayer("flood-fill")) {
-					map.setPaintProperty("flood-fill", "fill-color", fillColor);
-					map.setPaintProperty("flood-outline", "line-opacity", outlineOpacity);
-				} else {
-					map.addLayer({
-						id: "flood-fill",
-						type: "fill",
-						source: "flood",
-						paint: {
-							"fill-color": fillColor,
-							"fill-opacity": 0.85
-						}
-					});
+                        map.addLayer({
+                            id: "flood-outline",
+                            type: "line",
+                            source: "flood",
+                            paint: {
+                                "line-color": "#ffffff",
+                                "line-width": 0.5,
+                                "line-opacity": outlineOpacity
+                            }
+                        });
+                    }
+                } catch (err) {
+                    console.error("Error updating vector layer:", err);
+                }
+            };
 
-					map.addLayer({
-						id: "flood-outline",
-						type: "line",
-						source: "flood",
-						paint: {
-							"line-color": "#ffffff",
-							"line-width": 0.5,
-							"line-opacity": outlineOpacity
-						}
-					});
-				}
-			} catch (err) {
-				console.error("Error updating vector layer:", err);
-			}
-		};
+            updateVectorLayer();
 
         } else {
             // RASTER MODE: Clean up vector elements
@@ -164,8 +166,8 @@ function FloodMap({ activeViewMode, selectedView, displayMode, selectedRaster })
             removeLayerIfExists("flood-outline");
             removeSourceIfExists("flood");
 
-            const imageUrl = `http://127.0.0.1:8000/api/flood-raster-image/${selectedRaster}`;
-            const boundsUrl = `http://127.0.0.1:8000/api/flood-raster-bounds/${selectedRaster}`;
+            const imageUrl = `${API_BASE_URL}/api/flood-raster-image/${selectedRaster}`;
+            const boundsUrl = `${API_BASE_URL}/api/flood-raster-bounds/${selectedRaster}`;
 
             const updateRasterOverlay = async () => {
                 try {

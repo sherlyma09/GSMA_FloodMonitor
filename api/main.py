@@ -166,39 +166,40 @@ def get_flood_raster_bounds(raster_name: str, response: Response):
 
 @app.get("/api/event-parcel-exposure")
 def get_event_parcel_exposure():
-    """Downloads and merges the split parts from GitHub releases server-side."""
+
     combined_features = []
+
     base_url = "https://github.com/sherlyma09/GSMA_FloodMonitor/releases/download/v1.0.0"
-    
+
+    debug = []
+
     for i in range(1, 6):
+
         part_filename = f"parcel_flood_event_extent_part{i}.json"
-        
-        # Check local path first just in case
-        local_path = os.path.join(FLOOD_DIR, part_filename)
-        if os.path.exists(local_path):
-            try:
-                with open(local_path, "r") as f:
-                    data = json.load(f)
-                    combined_features.extend(data.get("features", []))
-                    continue
-            except Exception:
-                pass
-                
-        # Fallback to GitHub Release download URL
+
         url = f"{base_url}/{part_filename}"
+
         try:
-            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+
+            req = urllib.request.Request(
+                url,
+                headers={
+                    "User-Agent": "Mozilla/5.0"
+                }
+            )
+
             with urllib.request.urlopen(req) as response:
-                if response.status == 200:
-                    data = json.loads(response.read().decode('utf-8'))
-                    combined_features.extend(data.get("features", []))
+
+                debug.append({
+                    "file": part_filename,
+                    "status": response.status
+                })
+
         except Exception as e:
-            print(f"Warning: Could not fetch part {i}: {e}")
-            
-    if not combined_features:
-        raise HTTPException(status_code=404, detail="Event extent split parts could not be retrieved.")
-        
-    return {
-        "type": "FeatureCollection",
-        "features": combined_features
-    }
+
+            debug.append({
+                "file": part_filename,
+                "error": str(e)
+            })
+
+    return debug

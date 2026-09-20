@@ -164,14 +164,36 @@ def get_flood_raster_bounds(raster_name: str, response: Response):
             [80.5, 27.9]   # bottom-left
         ]
     }
+import urllib.request
+
 @app.get("/api/event-parcel-exposure")
 def get_event_parcel_exposure():
-    """Downloads or reads the split parts and returns combined FeatureCollection."""
+    """Returns the combined parcel-level flood exposure GeoJSON for the entire event."""
+    # Option A: Check if a local combined file exists inside FLOOD_DIR
+    combined_geojson_path = os.path.join(FLOOD_DIR, "parcel_flood_event_extent.geojson")
+    if os.path.exists(combined_geojson_path):
+        return FileResponse(combined_geojson_path, media_type="application/geo+json")
+
+    # Option B: Dynamically fetch and merge the 5 split parts
     combined_features = []
     base_url = "https://github.com/sherlyma09/GSMA_FloodMonitor/releases/download/v1.0.0"
     
     for i in range(1, 6):
-        url = f"{base_url}/parcel_flood_event_extent_part{i}.json"
+        # First check locally in FLOOD_DIR
+        part_filename = f"parcel_flood_event_extent_part{i}.json"
+        local_part_path = os.path.join(FLOOD_DIR, part_filename)
+        
+        if os.path.exists(local_part_path):
+            try:
+                with open(local_part_path, "r") as f:
+                    data = json.load(f)
+                    combined_features.extend(data.get("features", []))
+                    continue
+            except Exception as e:
+                print(f"Error reading local part {i}: {e}")
+                
+        # Fallback to GitHub release download link if not local
+        url = f"{base_url}/{part_filename}"
         try:
             req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
             with urllib.request.urlopen(req) as response:
@@ -179,10 +201,10 @@ def get_event_parcel_exposure():
                     data = json.loads(response.read().decode('utf-8'))
                     combined_features.extend(data.get("features", []))
         except Exception as e:
-            print(f"Warning: Could not fetch part {i}: {e}")
+            print(f"Warning: Could not fetch part {i} from GitHub releases: {e}")
             
     if not combined_features:
-        raise HTTPException(status_code=404, detail="Event extent parts not found.")
+        raise HTTPException(status_code=404, detail="Parcel exposure split parts or combined file not found.")
         
     return {
         "type": "FeatureCollection",

@@ -87,14 +87,6 @@ def get_event_extent_summary():
     with open(json_path, "r") as f:
         return json.load(f)
 
-@app.get("/api/event-parcel-exposure")
-def get_event_parcel_exposure():
-    """Returns the parcel-level flood exposure GeoJSON for the entire event."""
-    geojson_path = os.path.join(FLOOD_DIR, "parcel_flood_event_extent.geojson")
-    if not os.path.exists(geojson_path):
-        raise HTTPException(status_code=404, detail="Parcel exposure GeoJSON not found.")
-    return FileResponse(geojson_path, media_type="application/geo+json")
-
 @app.get("/api/parcel-exposure/{date_str}")
 def get_date_parcel_exposure(date_str: str):
     """Returns the parcel-level flood exposure GeoJSON for a specific date or event extent."""
@@ -164,20 +156,37 @@ def get_flood_raster_bounds(raster_name: str, response: Response):
         ]
     }
 
+# --------------------------------------------------
+# EVENT PARCEL EXPOSURE
+# --------------------------------------------------
+
 @app.get("/api/event-parcel-exposure")
 def get_event_parcel_exposure():
+    """
+    Reads split GeoJSON chunks from GitHub Release
+    and merges them into a single FeatureCollection.
+    """
+
+    base_url = (
+        "https://github.com/"
+        "sherlyma09/"
+        "GSMA_FloodMonitor/"
+        "releases/download/"
+        "v1.0.0"
+    )
 
     combined_features = []
 
-    base_url = "https://github.com/sherlyma09/GSMA_FloodMonitor/releases/download/v1.0.0"
-
-    debug = []
-
     for i in range(1, 6):
 
-        part_filename = f"parcel_flood_event_extent_part{i}.json"
+        part_filename = (
+            f"parcel_flood_event_extent_part{i}.json"
+        )
 
-        url = f"{base_url}/{part_filename}"
+        url = (
+            f"{base_url}/"
+            f"{part_filename}"
+        )
 
         try:
 
@@ -190,16 +199,40 @@ def get_event_parcel_exposure():
 
             with urllib.request.urlopen(req) as response:
 
-                debug.append({
-                    "file": part_filename,
-                    "status": response.status
-                })
+                if response.status == 200:
+
+                    data = json.loads(
+                        response.read().decode(
+                            "utf-8"
+                        )
+                    )
+
+                    combined_features.extend(
+                        data.get(
+                            "features",
+                            []
+                        )
+                    )
 
         except Exception as e:
 
-            debug.append({
-                "file": part_filename,
-                "error": str(e)
-            })
+            print(
+                f"Failed to load "
+                f"{part_filename}: {e}"
+            )
 
-    return debug
+    if not combined_features:
+
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Event extent split files "
+                "could not be downloaded "
+                "from GitHub Releases."
+            )
+        )
+
+    return {
+        "type": "FeatureCollection",
+        "features": combined_features
+    }

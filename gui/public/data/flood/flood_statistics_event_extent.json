@@ -1,9 +1,0 @@
-{
-  "event": "maximum_flood_extent",
-  "total_parcels": 143992,
-  "affected_parcels": 18780,
-  "affected_pct": 13.04,
-  "total_flooded_area_ha": 2415.45,
-  "average_pct_flooded": 27.61,
-  "extreme_parcels": 1791
-}

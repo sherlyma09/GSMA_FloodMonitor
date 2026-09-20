@@ -8,9 +8,13 @@ from rasterio.warp import transform_bounds
 
 app = FastAPI(title="Gobind Sugar Mill Flood Monitor API", version="1.0.0")
 
+# Configure CORS to allow your Netlify frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://gsmafloodmonitor.netlify.app",
+        "http://localhost:5173" # Keep local testing alive too
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

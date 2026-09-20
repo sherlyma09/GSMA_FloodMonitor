@@ -16,29 +16,32 @@ export default function Dashboard() {
     const [selectedRaster, setSelectedRaster] = useState("flood_event_extent");
 
     useEffect(() => {
-        if (activeViewMode !== "vector") return;
-
-        const endpoint = selectedView === "event_extent" 
-            ? "http://127.0.0.1:8000/api/event-extent-summary"
-            : `http://127.0.0.1:8000/api/flood-statistics?date=${selectedView}`;
-
-        setLoading(true);
-        setError(null);
-
-        fetch(endpoint)
-            .then((res) => {
-                if (!res.ok) throw new Error("Failed to fetch summary statistics");
-                return res.json();
-            })
-            .then((data) => {
-                setSummary(data);
-                setLoading(false);
-            })
-            .catch((err) => {
-                setError(err.message);
-                setLoading(false);
-            });
-    }, [selectedView, activeViewMode]);
+            if (activeViewMode !== "vector") return;
+    
+            // Use the environment variable from Netlify, falling back to your live Render backend
+            const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://gsma-floodmonitor.onrender.com";
+    
+            const endpoint = selectedView === "event_extent" 
+                ? `${API_BASE_URL}/api/event-extent-summary`
+                : `${API_BASE_URL}/api/flood-statistics?date=${selectedView}`;
+    
+            setLoading(true);
+            setError(null);
+    
+            fetch(endpoint)
+                .then((res) => {
+                    if (!res.ok) throw new Error("Failed to fetch summary statistics");
+                    return res.json();
+                })
+                .then((data) => {
+                    setSummary(data);
+                    setLoading(false);
+                })
+                .catch((err) => {
+                    setError(err.message);
+                    setLoading(false);
+                });
+        }, [selectedView, activeViewMode]);
 
     if (error) {
         return <div className="error">Error: {error}</div>;

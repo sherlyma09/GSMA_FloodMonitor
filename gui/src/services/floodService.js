@@ -1,3 +1,13 @@
+// Example API base configuration
+// To this (pointing directly to your live Render backend):
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://gsma-floodmonitor.onrender.com";
+
+export async function fetchEventExtentSummary() {
+  const response = await fetch(`${API_BASE_URL}/api/event-extent-summary`);
+  if (!response.ok) throw new Error("Failed to fetch event summary");
+  return response.json();
+}
+
 export async function loadEventStats() {
     const response = await fetch(
         "/data/flood/flood_statistics_event_extent.json"

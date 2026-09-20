@@ -1,0 +1,38 @@
+[
+  {
+    "date": "20260903",
+    "flood_area_ha": 24234.47,
+    "affected_parcels": 11020,
+    "affected_pct": 7.65,
+    "affected_area_ha": 807.38,
+    "average_pct_flooded": 15.68,
+    "extreme_parcels": 535
+  },
+  {
+    "date": "20260907",
+    "flood_area_ha": 25103.01,
+    "affected_parcels": 15028,
+    "affected_pct": 10.44,
+    "affected_area_ha": 1657.22,
+    "average_pct_flooded": 23.28,
+    "extreme_parcels": 1262
+  },
+  {
+    "date": "20260910",
+    "flood_area_ha": 10854.64,
+    "affected_parcels": 2330,
+    "affected_pct": 1.62,
+    "affected_area_ha": 250.68,
+    "average_pct_flooded": 19.45,
+    "extreme_parcels": 118
+  },
+  {
+    "date": "20260915",
+    "flood_area_ha": 30368.46,
+    "affected_parcels": 11106,
+    "affected_pct": 7.71,
+    "affected_area_ha": 770.83,
+    "average_pct_flooded": 14.29,
+    "extreme_parcels": 501
+  }
+]

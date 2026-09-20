@@ -1,5 +1,13 @@
 // Example API base configuration
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+// gui/src/services/floodService.js
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+
+export async function fetchEventExtentSummary() {
+  const response = await fetch(`${API_BASE_URL}/api/event-extent-summary`);
+  if (!response.ok) throw new Error("Failed to fetch event summary");
+  return response.json();
+}
 
 export async function loadEventStats() {
     const response = await fetch(

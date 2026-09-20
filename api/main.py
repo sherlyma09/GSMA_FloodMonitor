@@ -1,27 +1,26 @@
 import json
 import os
+import urllib.request
 import rasterio
 from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from rasterio.warp import transform_bounds
-import urllib.request
 
 app = FastAPI(title="Gobind Sugar Mill Flood Monitor API", version="1.0.0")
 
-# Configure CORS to allow your Netlify frontend
+# CORS setup
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://gsmafloodmonitor.netlify.app",
-        "http://localhost:5173" # Keep local testing alive too
+        "http://localhost:5173"
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# FIXED: Resolve paths relative to this file's location (api folder), then point to root gui/public/data
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(PROJECT_ROOT, "gui", "public", "data")
@@ -164,35 +163,28 @@ def get_flood_raster_bounds(raster_name: str, response: Response):
             [80.5, 27.9]   # bottom-left
         ]
     }
-import urllib.request
 
 @app.get("/api/event-parcel-exposure")
 def get_event_parcel_exposure():
-    """Returns the combined parcel-level flood exposure GeoJSON for the entire event."""
-    # Option A: Check if a local combined file exists inside FLOOD_DIR
-    combined_geojson_path = os.path.join(FLOOD_DIR, "parcel_flood_event_extent.geojson")
-    if os.path.exists(combined_geojson_path):
-        return FileResponse(combined_geojson_path, media_type="application/geo+json")
-
-    # Option B: Dynamically fetch and merge the 5 split parts
+    """Downloads and merges the split parts from GitHub releases server-side."""
     combined_features = []
     base_url = "https://github.com/sherlyma09/GSMA_FloodMonitor/releases/download/v1.0.0"
     
     for i in range(1, 6):
-        # First check locally in FLOOD_DIR
         part_filename = f"parcel_flood_event_extent_part{i}.json"
-        local_part_path = os.path.join(FLOOD_DIR, part_filename)
         
-        if os.path.exists(local_part_path):
+        # Check local path first just in case
+        local_path = os.path.join(FLOOD_DIR, part_filename)
+        if os.path.exists(local_path):
             try:
-                with open(local_part_path, "r") as f:
+                with open(local_path, "r") as f:
                     data = json.load(f)
                     combined_features.extend(data.get("features", []))
                     continue
-            except Exception as e:
-                print(f"Error reading local part {i}: {e}")
+            except Exception:
+                pass
                 
-        # Fallback to GitHub release download link if not local
+        # Fallback to GitHub Release download URL
         url = f"{base_url}/{part_filename}"
         try:
             req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
@@ -201,10 +193,10 @@ def get_event_parcel_exposure():
                     data = json.loads(response.read().decode('utf-8'))
                     combined_features.extend(data.get("features", []))
         except Exception as e:
-            print(f"Warning: Could not fetch part {i} from GitHub releases: {e}")
+            print(f"Warning: Could not fetch part {i}: {e}")
             
     if not combined_features:
-        raise HTTPException(status_code=404, detail="Parcel exposure split parts or combined file not found.")
+        raise HTTPException(status_code=404, detail="Event extent split parts could not be retrieved.")
         
     return {
         "type": "FeatureCollection",

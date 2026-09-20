@@ -63,38 +63,14 @@ function FloodMap({ activeViewMode, selectedView, displayMode, selectedRaster })
                 if (!map || !map.isStyleLoaded()) return;
 
                 try {
-                    let floodData;
+                    // Fetch the combined event parcel exposure directly from your Render backend endpoint
+                    const endpoint = `${API_BASE_URL}/api/event-parcel-exposure`;
 
-                    // If viewing the massive event extent, fetch and merge the 5 split parts from GitHub Releases
-                    if (selectedView === "event_extent") {
-                        const totalParts = 5;
-                        const fetchPromises = Array.from({ length: totalParts }, async (_, i) => {
-                            const partNum = i + 1;
-                            const url = `https://github.com/sherlyma09/GSMA_FloodMonitor/releases/download/v1.0.0/parcel_flood_event_extent_part${partNum}.json`;
-                            
-                            const res = await fetch(url);
-                            if (!res.ok) throw new Error(`Failed to load event extent part ${partNum}`);
-                            const data = await res.json();
-                            return data.features || [];
-                        });
-                    
-                        const results = await Promise.all(fetchPromises);
-                        let combinedFeatures = [];
-                        results.forEach(features => combinedFeatures.push(...features));
-                    
-                        floodData = {
-                            type: "FeatureCollection",
-                            features: combinedFeatures
-                        };
-                    } else {
-                        // For other specific dates, fetch from your live backend endpoint
-                        const dataUrl = `${API_BASE_URL}/api/parcel-exposure/${selectedView}`;
-                        const res = await fetch(dataUrl);
-                        if (!res.ok) throw new Error("Failed to fetch vector data");
-                        floodData = await res.json();
-                    }
+                    const res = await fetch(endpoint);
+                    if (!res.ok) throw new Error("Failed to fetch vector data");
+                    const floodData = await res.json();
 
-                    // Feed the unified data into the MapLibre source
+                    // Feed the data into the MapLibre source
                     if (map.getSource("flood")) {
                         map.getSource("flood").setData(floodData);
                     } else {
